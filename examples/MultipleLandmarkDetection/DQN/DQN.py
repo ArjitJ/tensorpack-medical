@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: DQN.py
 # Author: Amir Alansary <amiralansary@gmail.com>
+# Modified: Arjit Jain <thearjitjain@gmail.com>
 
 
 def warn(*args, **kwargs):
@@ -70,7 +71,7 @@ MEMORY_SIZE = 1e5  # 6
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20  # 5e4
 # each epoch is 100k played frames
 # STEPS_PER_EPOCH = 10000 // UPDATE_FREQ * 10
-STEPS_PER_EPOCH = 27624
+STEPS_PER_EPOCH = 3677
 # num training epochs in between model evaluations
 EPOCHS_PER_EVAL = 1
 # the number of episodes to run during evaluation
@@ -279,12 +280,12 @@ class Model(DQNModel):
                     V = FullyConnected("fctV_{}".format(i), fc2, 1, nl=tf.identity)
 
                     fcA0 = FullyConnected(
-                        "fc0V_{}".format(i), conv3, 512, nl=tf.nn.relu
+                        "fc0A_{}".format(i), conv3, 512, nl=tf.nn.relu
                     )
-                    fcA1 = FullyConnected("fc1V_{}".format(i), fcA0, 256, nl=tf.nn.relu)
-                    fcA2 = FullyConnected("fc2V_{}".format(i), fcA1, 128, nl=tf.nn.relu)
+                    fcA1 = FullyConnected("fc1A_{}".format(i), fcA0, 256, nl=tf.nn.relu)
+                    fcA2 = FullyConnected("fc2A_{}".format(i), fcA1, 128, nl=tf.nn.relu)
                     A = FullyConnected(
-                        "fctV_{}".format(i), fcA2, self.num_actions, nl=tf.identity
+                        "fctA_{}".format(i), fcA2, self.num_actions, nl=tf.identity
                     )
 
                     Q = tf.add(A, V - tf.reduce_mean(A, 1, keepdims=True))

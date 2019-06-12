@@ -3,6 +3,7 @@
 # File: common.py
 # Author: Yuxin Wu <ppwwyyxxc@gmail.com>
 # Modified: Amir Alansary <amiralansary@gmail.com>
+# Modified: Arjit Jain <thearjitjain@gmail.com>
 
 import random
 import time
@@ -90,6 +91,7 @@ def play_n_episodes(
         os.mkdir(infDir)
     logger.info("Start Playing ... ")
     dists = np.zeros((agents, nr))
+    logs = []
     for k in range(nr):
         # if k != 0:
         #     player.restart_episode()
@@ -116,6 +118,7 @@ def play_n_episodes(
                     location[i],
                 )
             )
+            logs.append([distance_error[i], filename[i], i])
             physical = img.TransformContinuousIndexToPhysicalPoint(
                 (float(location[i][0]), float(location[i][1]), float(location[i][2]))
             )
@@ -125,7 +128,8 @@ def play_n_episodes(
                 )
             )
         fcsv_new.close()
-
+    logs = np.sort(logs, axis=0)
+    np.savetxt(infDir + '/errorAnalysis.txt', logs)
     for i in range(0, agents):
         mean_dists = np.mean(dists[i])
         var_dist = np.var(dists[i])

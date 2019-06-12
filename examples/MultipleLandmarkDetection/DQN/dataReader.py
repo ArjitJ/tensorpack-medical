@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: dataReader.py
 # Author: Amir Alansary <amiralansary@gmail.com>
+# Modified: Arjit Jain <thearjitjain@gmail.com>
 
 import warnings
 
