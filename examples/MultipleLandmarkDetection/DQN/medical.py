@@ -18,17 +18,14 @@ warnings.warn = warn
 warnings.simplefilter("ignore", category=PendingDeprecationWarning)
 import copy
 import os
-import sys
 import six
-import random
+import time
 import threading
 import numpy as np
 from tensorpack import logger
 from collections import Counter, defaultdict, deque, namedtuple
 
 import cv2
-import math
-import time
 from PIL import Image
 import subprocess
 import shutil
@@ -44,7 +41,6 @@ except ImportError as e:
 from tensorpack.utils.utils import get_rng
 from tensorpack.utils.stats import StatCounter
 
-from IPython.core.debugger import set_trace
 from dataReader import *
 
 _ALE_LOCK = threading.Lock()
@@ -52,61 +48,62 @@ _ALE_LOCK = threading.Lock()
 Rectangle = namedtuple("Rectangle", ["xmin", "xmax", "ymin", "ymax", "zmin", "zmax"])
 
 
-# ===================================================================
-# =================== 3d medical environment ========================
-# ===================================================================
+meanFiducialLocations = np.round(
+    [
+        [150.7702, 138.60277954, 151.98192137],
+        [150.74588707, 162.10524866, 110.23203827],
+        [151.09621394, 156.29945211, 144.78881849],
+        [180.83112872, 82.83708274, 131.29505951],
+        [151.13853325, 165.22111792, 149.20116468],
+        [119.85870404, 83.46380745, 131.34063267],
+        [150.99089833, 159.52185415, 134.44216521],
+        [151.55070037, 170.83357517, 129.71503149],
+        [150.93878646, 175.14151264, 131.3957788],
+        [150.38895892, 185.02951062, 122.06681438],
+        [173.80787289, 188.94281011, 161.22261882],
+        [127.15455103, 186.64361216, 161.80933774],
+        [151.93073548, 157.20220841, 81.4353914],
+        [150.59105531, 122.38810986, 163.5195688],
+        [165.49572885, 120.02350303, 160.85346251],
+        [183.31368314, 180.90842714, 111.32023007],
+        [161.14224195, 80.39792361, 179.32363185],
+        [151.79010064, 153.47446946, 170.62079148],
+        [214.38790092, 176.2824004, 147.0723954],
+        [162.74941969, 238.88180688, 140.35430103],
+        [183.30568753, 174.82067126, 122.66866385],
+        [161.29664229, 169.47159828, 217.22514084],
+        [186.85032027, 114.29973643, 133.83023224],
+        [171.33925287, 148.17630543, 138.50647418],
+        [128.53853775, 147.51666101, 137.35989143],
+        [184.34108122, 148.59714047, 135.76772275],
+        [118.43539672, 144.21874083, 133.07198722],
+        [162.19982716, 174.10511567, 124.08372292],
+        [208.46878039, 140.3457483, 108.45904222],
+        [151.6218516, 182.21440122, 164.35046143],
+        [150.1336313, 129.85575415, 176.01411505],
+        [151.29735792, 146.9260105, 156.38491841],
+        [150.86096144, 150.86383804, 143.96060059],
+        [151.35081922, 187.46337068, 122.42567749],
+        [151.13254747, 203.78583404, 135.81749554],
+        [151.32575415, 191.66619639, 149.14032132],
+        [150.65423831, 134.3909411, 138.37864457],
+        [134.56719961, 118.87153816, 163.84388299],
+        [120.87916644, 182.75201017, 110.23060053],
+        [140.55058493, 79.47563927, 178.40777421],
+        [149.0524632, 153.42689793, 171.06462178],
+        [86.27817145, 167.34519222, 145.36055114],
+        [133.97973733, 237.35662212, 141.78197246],
+        [119.05957563, 172.48246284, 122.56024558],
+        [141.57094056, 185.89693817, 215.72659647],
+        [114.58058444, 113.07033697, 132.23603307],
+        [94.07960264, 142.56579797, 108.18640964],
+        [150.70425898, 128.437913, 157.51355033],
+        [150.52220298, 131.35622781, 169.277802],
+        [169.44072143, 107.3632511, 200.86611963],
+        [131.37129757, 106.97741528, 201.17642023],
+    ]
+).astype(int)
 
-meanFiducialLocations = np.round([[150.7702, 138.60277954, 151.98192137],
-       [150.74588707, 162.10524866, 110.23203827],
-       [151.09621394, 156.29945211, 144.78881849],
-       [180.83112872,  82.83708274, 131.29505951],
-       [151.13853325, 165.22111792, 149.20116468],
-       [119.85870404,  83.46380745, 131.34063267],
-       [150.99089833, 159.52185415, 134.44216521],
-       [151.55070037, 170.83357517, 129.71503149],
-       [150.93878646, 175.14151264, 131.3957788 ],
-       [150.38895892, 185.02951062, 122.06681438],
-       [173.80787289, 188.94281011, 161.22261882],
-       [127.15455103, 186.64361216, 161.80933774],
-       [151.93073548, 157.20220841,  81.4353914 ],
-       [150.59105531, 122.38810986, 163.5195688 ],
-       [165.49572885, 120.02350303, 160.85346251],
-       [183.31368314, 180.90842714, 111.32023007],
-       [161.14224195,  80.39792361, 179.32363185],
-       [151.79010064, 153.47446946, 170.62079148],
-       [214.38790092, 176.2824004 , 147.0723954 ],
-       [162.74941969, 238.88180688, 140.35430103],
-       [183.30568753, 174.82067126, 122.66866385],
-       [161.29664229, 169.47159828, 217.22514084],
-       [186.85032027, 114.29973643, 133.83023224],
-       [171.33925287, 148.17630543, 138.50647418],
-       [128.53853775, 147.51666101, 137.35989143],
-       [184.34108122, 148.59714047, 135.76772275],
-       [118.43539672, 144.21874083, 133.07198722],
-       [162.19982716, 174.10511567, 124.08372292],
-       [208.46878039, 140.3457483 , 108.45904222],
-       [151.6218516 , 182.21440122, 164.35046143],
-       [150.1336313 , 129.85575415, 176.01411505],
-       [151.29735792, 146.9260105 , 156.38491841],
-       [150.86096144, 150.86383804, 143.96060059],
-       [151.35081922, 187.46337068, 122.42567749],
-       [151.13254747, 203.78583404, 135.81749554],
-       [151.32575415, 191.66619639, 149.14032132],
-       [150.65423831, 134.3909411 , 138.37864457],
-       [134.56719961, 118.87153816, 163.84388299],
-       [120.87916644, 182.75201017, 110.23060053],
-       [140.55058493,  79.47563927, 178.40777421],
-       [149.0524632 , 153.42689793, 171.06462178],
-       [ 86.27817145, 167.34519222, 145.36055114],
-       [133.97973733, 237.35662212, 141.78197246],
-       [119.05957563, 172.48246284, 122.56024558],
-       [141.57094056, 185.89693817, 215.72659647],
-       [114.58058444, 113.07033697, 132.23603307],
-       [ 94.07960264, 142.56579797, 108.18640964],
-       [150.70425898, 128.437913  , 157.51355033],
-       [150.52220298, 131.35622781, 169.277802  ],
-       [169.44072143, 107.3632511 , 200.86611963],
-       [131.37129757, 106.97741528, 201.17642023]]).astype(int)
 
 class MedicalPlayer(gym.Env):
     """Class that provides 3D medical image environment.
@@ -116,7 +113,6 @@ class MedicalPlayer(gym.Env):
 
     def __init__(
         self,
-        directory=None,
         viz=False,
         task=False,
         files_list=None,
@@ -131,7 +127,6 @@ class MedicalPlayer(gym.Env):
         infDir="../inference",
     ):
         """
-        :param train_directory: environment or game name
         :param viz: visualization
             set to 0 to disable
             set to +ve number to be the delay between frames to show
@@ -143,26 +138,6 @@ class MedicalPlayer(gym.Env):
             episode (useful for training)
         :max_num_frames: maximum numbe0r of frames per episode.
         """
-        # self.csvfile = 'DQN_fetal_US_agents_2_400k_RC_LC_CRP.csv'
-        #
-        # # if os.path.exists(self.csvfile): sys.exit('csv file exists')
-        #
-        # if task!='train':
-        #     with open(self.csvfile, 'w') as outcsv:
-        #         fields = ["filename", "dist_error"]
-        #         writer = csv.writer(outcsv)
-        #         writer.writerow(map(lambda x: x, fields))
-        #
-        # x = [0.5, 0.25, 0.75]
-        # y = [0.5, 0.25, 0.75]
-        # z = [0.5, 0.25, 0.75]
-        # self.start_points = []
-        # for combination in itertools.product(x, y, z):
-        #     if 0.5 in combination: self.start_points.append(combination)
-        # self.start_points = itertools.cycle(self.start_points)
-        # self.count_points = 0
-        # self.total_loc = []
-        ######################################################################
 
         super(MedicalPlayer, self).__init__()
         # number of agents
@@ -234,7 +209,8 @@ class MedicalPlayer(gym.Env):
                 returnLandmarks=False,
                 eval=True,
                 fiducials=fiducials,
-                infDir=infDir, agents=self.agents,
+                infDir=infDir,
+                agents=self.agents,
             )
         else:
             if self.task == "eval":
@@ -243,7 +219,8 @@ class MedicalPlayer(gym.Env):
                     returnLandmarks=True,
                     fiducials=fiducials,
                     eval=True,
-                    infDir=infDir, agents=self.agents,
+                    infDir=infDir,
+                    agents=self.agents,
                 )
             else:
                 self.files = filesListBrainMRLandmark(
@@ -251,7 +228,8 @@ class MedicalPlayer(gym.Env):
                     returnLandmarks=True,
                     fiducials=fiducials,
                     eval=False,
-                    infDir=infDir,agents=self.agents,
+                    infDir=infDir,
+                    agents=self.agents,
                 )
 
         # prepare file sampler
@@ -299,35 +277,6 @@ class MedicalPlayer(gym.Env):
 
         self.viewer = None
 
-        #
-        # if self.task!='train':
-        #     #######################################################################
-        #     ## generate results for yuwanwei landmark miccai2018 paper
-        #     ## save results in csv file
-        #     if self.count_points == 0:
-        #         print('\n============== new game ===============\n')
-        #         # save results
-        #         if self.total_loc:
-        #             with open(self.csvfile, 'a') as outcsv:
-        #                 fields = [self.filename, self.cur_dist]
-        #                 writer = csv.writer(outcsv)
-        #                 writer.writerow(map(lambda x: x, fields))
-        #             self.total_loc = []
-        #         # sample a new image
-        #         self._image, self._target_loc, self.filepath, self.spacing = next(self.sampled_files)
-        #         scale = next(self.start_points)
-        #         self.count_points += 1
-        #     else:
-        #         self.count_points += 1
-        #         logger.info('count_points {}'.format(self.count_points))
-        #         scale = next(self.start_points)
-        #
-        #     x_temp = int(scale[0] * self._image[0].dims[0])
-        #     y_temp = int(scale[1] * self._image[0].dims[1])
-        #     z_temp = int(scale[2] * self._image[0].dims[2])
-        #     logger.info('starting point {}-{}-{}'.format(x_temp, y_temp, z_temp))
-        #     #######################################################################
-        # else:
         self._image, self._target_loc, self.filepath, self.spacing = next(
             self.sampled_files
         )
@@ -351,53 +300,6 @@ class MedicalPlayer(gym.Env):
             self.zscale = 1
         # image volume size
         self._image_dims = self._image[0].dims
-
-        #######################################################################
-        # ## select random starting point
-        # # add padding to avoid start right on the border of the image
-        # if self.task == "train":
-        #     skip_thickness = (
-        #         (int)(self._image_dims[0] / 5),
-        #         (int)(self._image_dims[1] / 5),
-        #         (int)(self._image_dims[2] / 5),
-        #     )
-        # else:
-        #     skip_thickness = (
-        #         int(self._image_dims[0] / 4),
-        #         int(self._image_dims[1] / 4),
-        #         int(self._image_dims[2] / 4),
-        #     )
-        #
-        # # if self.task == 'train':
-        # x = []
-        # y = []
-        # z = []
-        # for i in range(0, self.agents):
-        #     x.append(
-        #         self.rng.randint(
-        #             0 + skip_thickness[0], self._image_dims[0] - skip_thickness[0]
-        #         )
-        #     )
-        #     y.append(
-        #         self.rng.randint(
-        #             0 + skip_thickness[1], self._image_dims[1] - skip_thickness[1]
-        #         )
-        #     )
-        #     z.append(
-        #         self.rng.randint(
-        #             0 + skip_thickness[2], self._image_dims[2] - skip_thickness[2]
-        #         )
-        #     )
-        # # else:
-        # #     x=[]
-        # #     y=[]
-        # #     z=[]
-        # #     for i in range(0,self.agents):
-        # #         x.append(x_temp)
-        # #         y.append(y_temp)
-        # #         z.append(z_temp)
-        #
-        #######################################################################
 
         self._location = []
         self._start_location = []
@@ -620,26 +522,6 @@ class MedicalPlayer(gym.Env):
             info["filename_{}".format(i)] = self.filepath[i]
             info["location_{}".format(i)] = self._location[i]
 
-            #######################################################################
-            ## generate results for yuwanwei landmark miccai2018 paper
-
-        # if all(self.terminal):
-        #     logger.info(info)
-        #     self.total_loc.append(self._location)
-        #     if not (self.count_points == 5):
-        #         self._restart_episode()
-        #     else:
-        #         mean_location = np.mean(self.total_loc, axis=0)
-        #         for i in range(0,self.agents):
-        #             logger.info('agent {}  \n mean_location{}'.format(i, mean_location[i]))
-        #             if self.task != 'play':
-        #                 self.cur_dist[i] = self.calcDistance(mean_location[i],
-        #                                               self._target_loc[i],
-        #                                               self.spacing[i])
-        #                 logger.info('agent {} , final distance error {} \n'.format(i,self.cur_dist[i]))
-        #         self.count_points = 0
-        #######################################################################
-
         return self._current_state(), self.reward, self.terminal, info
 
     def getBestLocation(self):
@@ -653,19 +535,6 @@ class MedicalPlayer(gym.Env):
             best_qvalues = np.max(last_qvalues_history, axis=1)
             best_idx = best_qvalues.argmax()
             best_location.append(last_loc_history[best_idx])
-        #
-        # last_qvalues_history=[]
-        # last_loc_history=[]
-        # best_qvalues=[]
-        # best_idx=[]
-        #
-        # for i in range(0,self.agents):
-        #     last_qvalues_history.append(self._qvalues_history[i][-4:])
-        #     last_loc_history.append( self._loc_history[i][-4:])
-        #     best_qvalues.append(np.max(last_qvalues_history[i], axis=1))
-        #     best_idx.append(best_qvalues[i].argmin())
-        #     best_location.append(last_loc_history[best_idx[i]])
-
         return best_location
 
     def _clear_history(self):
@@ -778,9 +647,7 @@ class MedicalPlayer(gym.Env):
         curr_dist = self.calcDistance(
             current_loc, self._target_loc[agent], self.spacing
         )
-        next_dist = self.calcDistance(
-            next_loc, self._target_loc[agent], self.spacing
-        )
+        next_dist = self.calcDistance(next_loc, self._target_loc[agent], self.spacing)
         dist = curr_dist - next_dist
 
         return dist
@@ -839,10 +706,6 @@ class MedicalPlayer(gym.Env):
             target_point = None
             if self.task != "play":
                 target_point = self._target_loc[i]
-            # print("_location", self._location)
-            # print("_target_loc", self._target_loc)
-            # print("current_point", current_point)
-            # print("target_point", target_point)
             # get image and convert it to pyglet
             plane = self.get_plane(current_point[2], agent=i)  # z-plane
             # plane = np.squeeze(self._current_state()[:,:,13])
@@ -921,7 +784,7 @@ class MedicalPlayer(gym.Env):
 
             # render and wait (viz) time between frames
             self.viewer.render()
-            # time.sleep(self.viz)
+            time.sleep(self.viz)
             # save gif
             if self.saveGif:
                 image_data = (

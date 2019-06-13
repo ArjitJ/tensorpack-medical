@@ -14,19 +14,14 @@ import warnings
 warnings.warn = warn
 warnings.simplefilter("ignore", category=PendingDeprecationWarning)
 
-import numpy as np
 
 import os
-import sys
-import time
 import argparse
-from collections import deque
 
 import tensorflow as tf
 from medical import MedicalPlayer, FrameStack
 from tensorpack.input_source import QueueInput
 from tensorpack_medical.models.conv3d import Conv3D
-from tensorpack_medical.models.pool3d import MaxPooling3D
 from common import Evaluator, eval_model_multithread, play_n_episodes
 from DQNModel import Model3D as DQNModel
 from expreplay import ExpReplay

@@ -5,7 +5,6 @@
 # Modified: Amir Alansary <amiralansary@gmail.com>
 # Modified: Arjit Jain <thearjitjain@gmail.com>
 
-import six
 import copy
 import threading
 import numpy as np
@@ -22,10 +21,6 @@ from tensorpack.utils.concurrency import LoopThread, ShareSessionThread
 __all__ = ["ExpReplay"]
 
 
-# def initialize_experience(agents):
-# exp_list=[]
-# for i in agents:
-#     exp_list.append('state_{}'.format(i),'action_{}'.format(i),'reward_{}'.format(i),'isOver_{}'.format(i))
 Experience = namedtuple("Experience", ["state", "action", "reward", "isOver"])
 
 

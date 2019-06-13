@@ -17,7 +17,6 @@ from tensorpack.tfutils import (
     gradproc,
 )
 from tensorpack.tfutils.scope_utils import auto_reuse_variable_scope
-from tensorpack.models.regularize import regularize_cost_from_collection
 
 
 class Model3D(ModelDesc):
@@ -121,10 +120,7 @@ class Model3D(ModelDesc):
 
         else:
             # Double-DQN or DuelingDouble
-            # raise (' not implemented for multi agent ')
-            # self.greedy_choice=[]
             next_predict_values = self.get_DQN_prediction(next_states)
-            # predict_onehot=[]
             for i in range(0, self.agents):
                 self.greedy_choice = tf.argmax(next_predict_values[i], 1)  # N,
                 predict_onehot = tf.one_hot(

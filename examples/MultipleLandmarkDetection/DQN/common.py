@@ -5,27 +5,22 @@
 # Modified: Amir Alansary <amiralansary@gmail.com>
 # Modified: Arjit Jain <thearjitjain@gmail.com>
 
-import random
 import time
-import threading
 import numpy as np
 from tqdm import tqdm
 import multiprocessing
 from six.moves import queue
 
-# from tensorpack import *
-# from tensorpack.utils.stats import *
 from tensorpack.utils import logger
 
-# from tensorpack.callbacks import Triggerable
 from tensorpack.callbacks.base import Callback
 from tensorpack.utils.stats import StatCounter
 from tensorpack.utils.utils import get_tqdm_kwargs
 from tensorpack.utils.concurrency import StoppableThread, ShareSessionThread
 
-import traceback
 import os
 import SimpleITK as sitk
+
 ###############################################################################
 
 
@@ -102,7 +97,9 @@ def play_n_episodes(
         fcsv_new = open(
             infDir + "/" + os.path.basename(filename[0][:-10] + "lmks.fcsv"), "w"
         )
-        fcsv_new.write('# Markups fiducial file version = 4.10\n# CoordinateSystem = 0\n# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID\n')
+        fcsv_new.write(
+            "# Markups fiducial file version = 4.10\n# CoordinateSystem = 0\n# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID\n"
+        )
         for i in range(0, agents):
             dists[i, k] = distance_error[i]
 
@@ -129,7 +126,7 @@ def play_n_episodes(
             )
         fcsv_new.close()
     logs = np.sort(logs, axis=0)
-    np.save(infDir + '/errorAnalysis.npy', logs)
+    np.save(infDir + "/errorAnalysis.npy", logs)
     for i in range(0, agents):
         mean_dists = np.mean(dists[i])
         var_dist = np.var(dists[i])
@@ -265,7 +262,6 @@ class Evaluator(Callback):
 
     def _trigger(self):
         """triggered by Trainer"""
-        t = time.time()
         mean_score, max_score, mean_dist, max_dist = eval_with_funcs(
             self.pred_funcs,
             self.eval_episode,
@@ -273,9 +269,6 @@ class Evaluator(Callback):
             self.files_list,
             agents=self.agents,
         )
-        t = time.time() - t
-        if t > 10 * 60:  # eval takes too long
-            self.eval_episode = int(self.eval_episode * 0.94)
 
         # log scores
         self.trainer.monitors.put_scalar("mean_score", mean_score)

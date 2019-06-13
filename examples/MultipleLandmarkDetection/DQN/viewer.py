@@ -84,10 +84,6 @@ class SimpleImageViewer(object):
     def draw_point(self, x=0.0, y=0.0, z=0.0):
         x = self.img_height - x
         y = y
-        # pyglet.graphics.draw(1, GL_POINTS,
-        #     ('v2i', (x_new, y_new)),
-        #     ('c3B', (255, 0, 0))
-        # )
         glBegin(GL_POINTS)  # draw point
         glVertex3f(x, y, z)
         glEnd()
