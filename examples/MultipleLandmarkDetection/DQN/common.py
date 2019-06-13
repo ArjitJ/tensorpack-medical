@@ -129,7 +129,7 @@ def play_n_episodes(
             )
         fcsv_new.close()
     logs = np.sort(logs, axis=0)
-    np.savetxt(infDir + '/errorAnalysis.txt', logs)
+    np.save(infDir + '/errorAnalysis.npy', logs)
     for i in range(0, agents):
         mean_dists = np.mean(dists[i])
         var_dist = np.var(dists[i])
