@@ -22,7 +22,59 @@ import os
 import SimpleITK as sitk
 
 ###############################################################################
-
+weight = {
+'AC':0.99,
+'PC':0.95,
+'BPons':0.95,
+'RP':0.95,
+'VN4':0.95,
+'genu':0.95,
+'LE':0.95,
+'RE':0.95,
+'CM':0.05,
+'SMV':0.90,
+'dens_axis':0.90,
+'rostrum':0.90,
+'l_caud_head':0.90,
+'r_caud_head':0.90,
+'optic_chiasm':0.90,
+'r_corp':0.90,
+'l_corp':0.90,
+'l_front_pole':0.80,
+'r_front_pole':0.80,
+'r_lat_ext':0.90,
+'l_lat_ext':0.90,
+'r_occ_pole':0.90,
+'l_occ_pole':0.90,
+'r_prim_ext':0.90,
+'l_prim_ext':0.90,
+'mid_prim_inf':0.90,
+'mid_prim_sup':0.90,
+'r_sup_ext':0.65,
+'l_sup_ext':0.65,
+'r_temp_pole':0.90,
+'l_temp_pole':0.90,
+'m_ax_inf':0.90,
+'m_ax_sup':0.90,
+'mid_basel':0.85,
+'left_cereb':0.85,
+'RP_front':0.85,
+'rostrum_front':0.85,
+'r_inner_corpus':0.90,
+'l_inner_corpus':0.90,
+'mid_lat':0.70,
+'mid_sup':0.70,
+'left_lateral_inner_ear':0.85,
+'right_lateral_inner_ear':0.85,
+'top_left':0.80,
+'top_right':0.80,
+'callosum_left':0.60,
+'callosum_right':0.60,
+'lat_left':0.60,
+'lat_right':0.60,
+'lat_ven_left':0.60,
+'lat_ven_right':0.60
+}
 
 def play_one_episode(env, func, render=False, agents=2):
     def predict(s, agents):
@@ -68,7 +120,6 @@ def play_one_episode(env, func, render=False, agents=2):
 
 ###############################################################################
 
-
 def play_n_episodes(
     player,
     predfunc,
@@ -86,6 +137,8 @@ def play_n_episodes(
         os.mkdir(infDir)
     logger.info("Start Playing ... ")
     dists = np.zeros((agents, nr))
+    weights = []
+    fnames = []
     logs = []
     for k in range(nr):
         # if k != 0:
@@ -95,14 +148,17 @@ def play_n_episodes(
         )
         img = sitk.ReadImage(infDir + "/" + os.path.basename(filename[0]))
         fcsv_new = open(
-            infDir + "/" + os.path.basename(filename[0][:-10] + "lmks.fcsv"), "w"
+            infDir + "/" + os.path.basename(filename[0])[:-7] + '_lmks.fcsv', "w"
         )
         fcsv_new.write(
             "# Markups fiducial file version = 4.10\n# CoordinateSystem = 0\n# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID\n"
         )
+        weighted_error = 0
+        denominator = 0
         for i in range(0, agents):
             dists[i, k] = distance_error[i]
-
+            weighted_error += weight[fidname[i]] * distance_error[i]
+            denominator += weight[fidname[i]]
             logger.info(
                 "{}/{} - {} - AGENT {} - score {} - distError {} - q_values {} - location {}".format(
                     k + 1,
@@ -124,16 +180,23 @@ def play_n_episodes(
                     i, -physical[0], -physical[1], physical[2], fidname[i]
                 )
             )
+        weighted_error /= denominator #Sum of all the weights
         fcsv_new.close()
-    logs = np.sort(logs, axis=0)
-    np.save(infDir + "/errorAnalysis.npy", logs)
+        weights.append(weighted_error)
+        fnames.append(filename[0])
+    weighted = np.column_stack((np.array(weights), np.array(fnames)))
+    np.save(infDir + "/errorAnalysis.npy", np.array(logs))
+    np.save(infDir + '/weightedErrorAnalysis.npy', np.array(weighted))
     for i in range(0, agents):
         mean_dists = np.mean(dists[i])
         var_dist = np.var(dists[i])
+        max_dist = np.max(dists[i])
         logger.info("MEAN DISTANCE OF AGENT {} is {}".format(i, mean_dists))
         logger.info("VARIANCE DISTANCE OF AGENT {} is {}".format(i, var_dist))
-
-
+        logger.info("MAX DISTANCE OF AGENT {} is {}".format(i, max_dist))
+    logger.info("MEAN OF WEIGHTED ERROR is {}".format(np.mean(weights)))
+    logger.info("VARIANCE OF WEIGHTED ERROR is {}".format(np.var(weights)))
+    logger.info("MAX  OF WEIGHTED ERROR  is {}".format(np.max(weights)))
 ###############################################################################
 
 
@@ -168,7 +231,6 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, files_list=None, agents=
                         sum_r, filename, dist, q_values, location = play_one_episode(
                             player, self.func, agents=self.agents
                         )
-                        # print("Score, ", score)
                     except RuntimeError:
                         return
                     for i in range(0, self.agents):
@@ -255,7 +317,7 @@ class Evaluator(Callback):
         self.agents = agents
 
     def _setup_graph(self):
-        NR_PROC = min(multiprocessing.cpu_count() // 2, 20)
+        NR_PROC = min(multiprocessing.cpu_count() // 2, 2)
         self.pred_funcs = [
             self.trainer.get_predictor(self.input_names, self.output_names)
         ] * NR_PROC

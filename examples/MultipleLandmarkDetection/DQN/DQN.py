@@ -66,11 +66,11 @@ MEMORY_SIZE = 1e5  # 6
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20  # 5e4
 # each epoch is 100k played frames
 # STEPS_PER_EPOCH = 10000 // UPDATE_FREQ * 10
-STEPS_PER_EPOCH = 3677
+# STEPS_PER_EPOCH = 3677
 # num training epochs in between model evaluations
-EPOCHS_PER_EVAL = 1
+EPOCHS_PER_EVAL = 6
 # the number of episodes to run during evaluation
-EVAL_EPISODE = 100
+EVAL_EPISODE = 2598
 
 ###############################################################################
 
@@ -88,7 +88,6 @@ def get_player(
 ):
     # in atari paper, max_num_frames = 30000
     env = MedicalPlayer(
-        directory=directory,
         screen_dims=IMAGE_SIZE,
         viz=viz,
         saveGif=saveGif,
@@ -312,6 +311,7 @@ def get_config(
     agents=2,
     last=0,
     fiducials=None,
+    val_files = None
 ):
     """This is only used during training."""
     expreplay = ExpReplay(
@@ -357,7 +357,7 @@ def get_config(
                     nr_eval=EVAL_EPISODE,
                     input_names=input_names,
                     output_names=output_names,
-                    files_list=files_list,
+                    files_list=val_files,
                     get_player_fn=get_player_fn,
                     agents=agents,
                 ),
@@ -365,7 +365,7 @@ def get_config(
             ),
             HumanHyperParamSetter("learning_rate"),
         ],
-        steps_per_epoch=STEPS_PER_EPOCH,
+        steps_per_epoch=args.step,
         max_epoch=1000,
     )
 
@@ -448,19 +448,11 @@ if __name__ == "__main__":
         choices=["DQN", "Double", "Dueling", "DuelingDouble"],
         default="DQN",
     )
-    # parser.add_argument('--files', type=argparse.FileType('r'), nargs='+', default= ('/vol/biomedic2/aa16914/shared/thanos/data/cardiac_train_files.txt', '/vol/biomedic2/aa16914/shared/thanos/data/cardiac_train_landmarks.txt'),
-    #                     help="""Filepath to the text file that comtains list of images.
-    #                             Each line of this file is a full path to an image scan.
-    #                             For (task == train or eval) there should be two input files ['images', 'landmarks']""")
     parser.add_argument(
         "--files",
         type=argparse.FileType("r"),
         nargs="+",
-        default=(
-            "/vol/medic01/users/aa16914/projects/tensorpack-medical-gitlab/examples/LandmarkDetection/DQN/data/fetal_brain_us_yuanwei_miccai_2018/train_list.txt",
-            "a",
-        ),
-        help="""Filepath to the text file that comtains list of images.
+        help="""Filepath to the text file that contains list of images.
                                 Each line of this file is a full path to an image scan.
                                 For (task == train or eval) there should be two input files ['images', 'landmarks']""",
     )
@@ -494,6 +486,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--inferDir", help="directory to save the inferences", default="../inference"
     )
+    parser.add_argument("--step", help="steps per epoch", default=2500)
+    parser.add_argument("--valFiles",
+                        type=argparse.FileType("r"),
+                        nargs="+",
+                        help="""For Validation. Filepath to the text file that contains list of images.
+                                Each line of this file is a full path to an image scan.
+                                For (task == train or eval) there should be two input files ['images', 'landmarks']""", default=None)
+
 
     args = parser.parse_args()
     try:
@@ -503,7 +503,8 @@ if __name__ == "__main__":
         args.fiducials = [int(i) for i in args.fiducials]
     args.fiducials = sorted(args.fiducials)
     args.agents = len(args.fiducials)
-
+    if args.valFiles is None:
+        args.valFiles = args.files
     if args.gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
@@ -602,6 +603,7 @@ if __name__ == "__main__":
             agents=args.agents,
             last=args.lastEpoch,
             fiducials=args.fiducials,
+            val_files=args.valFiles
         )
         if args.load:  # resume training from a saved checkpoint
             config.session_init = get_model_loader(args.load)

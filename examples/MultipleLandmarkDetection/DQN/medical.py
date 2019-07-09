@@ -534,6 +534,7 @@ class MedicalPlayer(gym.Env):
             last_loc_history = self._loc_history[i][-4:]
             best_qvalues = np.max(last_qvalues_history, axis=1)
             best_idx = best_qvalues.argmax()
+            # best_idx = best_qvalues.argmin()
             best_location.append(last_loc_history[best_idx])
         return best_location
 
